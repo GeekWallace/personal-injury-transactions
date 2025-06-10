@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ninox Grid for Jotform</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/datatables.net/js/jquery.dataTables.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css" />
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    table { width: 100%; }
+  </style>
+</head>
+<body>
+  <h2>Select a Record to Edit</h2>
+  <table id="ninoxTable" class="display"></table>
+
+<script>
+  const NINOX_TOKEN = 'YOUR_NINOX_TOKEN';
+  const TEAM_ID = 'YOUR_TEAM_ID';
+  const DATABASE_ID = 'YOUR_DATABASE_ID';
+  const TABLE_ID = 'L';
+
+  async function fetchRecord(table, id) {
+    const url = `https://api.ninox.com/v1/teams/${TEAM_ID}/databases/${DATABASE_ID}/tables/${table}/records/${id}`;
+    const res = await axios.get(url, { headers: { Authorization: `Bearer ${NINOX_TOKEN}` }});
+    return res.data.fields;
+  }
+
+  async function fetchRecords() {
+    const url = `https://api.ninox.com/v1/teams/${TEAM_ID}/databases/${DATABASE_ID}/tables/${TABLE_ID}/records`;
+    const res = await axios.get(url, { headers: { Authorization: `Bearer ${NINOX_TOKEN}` }});
+    return res.data;
+  }
+
+  async function loadData() {
+    const records = await fetchRecords();
+    const tableData = [];
+
+    for (const rec of records) {
+      const f = rec.fields;
+      const related = {};
+      async function resolveField(name, table, label) {
+        if (f[name] && f[name].id) {
+          const rel = await fetchRecord(table, f[name].id);
+          related[label] = rel[label] || "";
+        }
+      }
+
+      await Promise.all([
+        resolveField("PI Patients", "K", "Patient Fname"),
+        resolveField("Entity Type", "TC", "Entity Type"),
+        resolveField("Location / Clinic", "VC", "Location name"),
+        resolveField("Physicians", "GD", "Physician Name"),
+        resolveField("Firm", "ID", "Firm"),
+        resolveField("Attorney Name", "ID", "Attorney Name"),
+        resolveField("Case Rep", "HD", "Case Rep Name")
+      ]);
+
+      tableData.push({
+        id: rec.id,
+        patientName: (related["Patient Fname"] || ""),
+        entityType: related["Entity Type"] || "",
+        location: related["Location name"] || "",
+        physician: related["Physician Name"] || "",
+        dos: f["DOS"] || "",
+        dateBilled: f["Date Billed"] || "",
+        serviceDescription: f["Full Service Description"] || "",
+        firm: related["Firm"] || "",
+        attorney: related["Attorney Name"] || "",
+        caseRep: related["Case Rep Name"] || "",
+        itemCharge: f["Item Charge"] || "",
+        pmtDate: f["Pmt Date"] || "",
+        paidAmount: f["Paid Amount"] || "",
+        discountAmount: f["Discount Amount"] || ""
+      });
+    }
+
+    $('#ninoxTable').DataTable({
+      data: tableData,
+      columns: [
+        { data: 'patientName', title: 'Patient Name' },
+        { data: 'physician', title: 'Physician' },
+        { data: 'dos', title: 'DOS' },
+        { data: 'itemCharge', title: 'Charge' },
+        { 
+          data: null, 
+          title: 'Action', 
+          render: function (data) {
+            return `<button onclick='selectRecord(${JSON.stringify(data)})'>Select</button>`;
+          }
+        }
+      ]
+    });
+  }
+
+  function selectRecord(data) {
+    window.parent.postMessage(data, '*');
+  }
+
+  loadData().catch(console.error);
+</script>
+</body>
+</html>
