@@ -1,11 +1,13 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ninox Grid via Make Proxy</title>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css">
+
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css" />
+
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     table { width: 100%; margin-top: 20px; }
@@ -16,60 +18,80 @@
   <h2>Select a Record to Edit</h2>
   <table id="ninoxTable" class="display"></table>
 
+  <!-- jQuery & DataTables JS -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+
   <script>
     async function fetchData() {
       try {
-        const response = await fetch('https://hook.us2.make.com/aepagnzieftg83djsradvhe7kckv9urv?patientid=97');
+        const response = await fetch(
+          'https://hook.us2.make.com/aepagnzieftg83djsradvhe7kckv9urv?patientid=97'
+        );
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`);
+        }
         const data = await response.json();
 
-           const tableData = data.map(record => {
+        const tableData = data.map(record => {
           const f = record.fields || {};
           return {
-            recordNum:    f['Record Num'] || '',
-            patientName:  f['Patient Name'] || '',
-            entityType:   f['Entity Type'] || '',
-            physicians:   f['Physicians'] || '',
-            dos:          f['DoS'] || '',
-            dateBilled:   f['Date Billed'] || '',
-            clinic:       f['Clinic'] || '',
-            firm:         f['Firm'] || '',
-            caseRep:      f['Case Rep'] || '',
-            itemCharge:   f['Item Charge'] || '',
-            serviceDesc:  f['Full Service Description'] || ''
+            recordNum:   f['Record Num'] || '',
+            patientName: f['Patient Name'] || '',
+            entityType:  f['Entity Type'] || '',
+            physicians:  f['Physicians'] || '',
+            dos:         f['DoS'] || '',
+            dateBilled:  f['Date Billed'] || '',
+            clinic:      f['Clinic'] || '',
+            firm:        f['Firm'] || '',
+            caseRep:     f['Case Rep'] || '',
+            itemCharge:  f['Item Charge'] || '',
+            serviceDesc: f['Full Service Description'] || ''
           };
         });
-        
+
         $('#ninoxTable').DataTable({
           data: tableData,
           columns: [
+            { data: 'recordNum',   title: 'Record #' },
             { data: 'patientName', title: 'Patient Name' },
-            { data: 'Physicians', title: 'Physician' },
-            { data: 'DoS', title: 'Date of Service' },
-              { data: 'Clinic', title: 'Clinic' },
-              { data: 'Firm', title: 'Firm' },
-            { data: 'itemCharge', title: 'Charge' },
-              { data: 'Full Service Description', title: 'Service Desc.' },
+            { data: 'physicians',  title: 'Physician' },
+            { data: 'dos',         title: 'Date of Service' },
+            { data: 'clinic',      title: 'Clinic' },
+            { data: 'firm',        title: 'Firm' },
+            { data: 'itemCharge',  title: 'Charge' },
+            { data: 'serviceDesc', title: 'Service Desc.' },
             {
               data: null,
               title: 'Action',
-              render: function(data) {
-                return `<button onclick='selectRecord(${JSON.stringify(data)})'>Select</button>`;
+              orderable: false,
+              render: function(rowData) {
+                // escape any single quotes in the JSON
+                const json = JSON.stringify(rowData).replace(/'/g, "&#39;");
+                return `<button onclick="selectRecord('${json}')">Select</button>`;
               }
             }
           ]
         });
-
       } catch (err) {
-        console.error("Failed to fetch data:", err);
-        alert("Error loading data from server.");
+        console.error('Failed to fetch data:', err);
+        alert('Error loading data from server.');
       }
     }
 
-    function selectRecord(data) {
+    function selectRecord(jsonData) {
+      let data;
+      try {
+        data = JSON.parse(jsonData);
+      } catch (e) {
+        console.error('Invalid record data', e);
+        return;
+      }
       window.parent.postMessage(data, '*');
     }
 
-    fetchData();
+   
+    $(document).ready(fetchData);
   </script>
 </body>
 </html>
