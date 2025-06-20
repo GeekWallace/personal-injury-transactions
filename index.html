@@ -160,24 +160,21 @@
     }
 
     function selectRecord(jsonData) {
-      let data;
-      try {
-        data = JSON.parse(jsonData);
-      } catch (e) {
-        console.error('Invalid record data', e);
-        return;
-      }
+  console.log("Attempting to parse jsonData:", jsonData);
+  let data;
+  try {
+    data = JSON.parse(jsonData);
+  } catch (e) {
+    console.error("⚠️ JSON.parse error:", e);
+    alert("Invalid data format: check console for details.");
+    return;
+  }
 
-      document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
+  // After parsing, rest stays the same:
+  document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
+  fetchPatientTransactions(data.recordId);
+}
 
-      const patientId = data.recordId;
-      if (!patientId) {
-        alert("Missing Patient Record ID.");
-        return;
-      }
-
-      fetchPatientTransactions(patientId);
-    }
 
     function calculatePayments() {
       const pmtDate = document.getElementById('pmtDate').value;
