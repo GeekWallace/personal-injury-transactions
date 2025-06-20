@@ -11,15 +11,19 @@
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     table { width: 100%; margin-top: 20px; }
-    h2 { font-size: 24px; }
+    h2 { font-size: 24px; margin-top: 40px; }
   </style>
 </head>
 <body>
   <h2>Patient List</h2>
-  <h2>Patient Location Transactions</h2>
+  <!-- 👇 New table for patient list -->
+  <table id="PatientList" class="display"></table>
 
+  <h2>Patient Location Transactions</h2>
   <table id="PatientTransactions" class="display"></table>
-   <h2>Patient Location Payment Details</h2>
+
+  <h2>Patient Location Payment Details</h2>
+
   <!-- jQuery & DataTables JS -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
@@ -35,25 +39,47 @@
         }
         const data = await response.json();
 
-        const tableData = data.map(record => {
+        const listTableData = [];
+        const transactionTableData = [];
+
+        data.forEach(record => {
           const f = record.fields || {};
-          return {
+
+          // Data for Patient List table
+          listTableData.push({
+            recordNum: f['Record Num'] || '',
+            phone:     f['Phone'] || '',
+            email:     f['Email'] || '',
+            dob:       f['Date of Birth'] || ''
+          });
+
+          // Data for Patient Location Transactions table
+          transactionTableData.push({
             recordNum:   f['Record Num'] || '',
             patientName: f['Patient Name'] || '',
-            entityType:  f['Entity Type'] || '',
             physicians:  f['Physicians'] || '',
             dos:         f['DoS'] || '',
-            dateBilled:  f['Date Billed'] || '',
             clinic:      f['Clinic'] || '',
             firm:        f['Firm'] || '',
-            caseRep:     f['Case Rep'] || '',
             itemCharge:  f['Item Charge'] || '',
             serviceDesc: f['Full Service Description'] || ''
-          };
+          });
         });
 
+        // 👇 Initialize Patient List table
+        $('#PatientList').DataTable({
+          data: listTableData,
+          columns: [
+            { data: 'recordNum', title: 'Record #' },
+            { data: 'phone',     title: 'Phone' },
+            { data: 'email',     title: 'Email' },
+            { data: 'dob',       title: 'Date of Birth' }
+          ]
+        });
+
+        // 👇 Initialize Patient Transactions table
         $('#PatientTransactions').DataTable({
-          data: tableData,
+          data: transactionTableData,
           columns: [
             { data: 'recordNum',   title: 'Record #' },
             { data: 'patientName', title: 'Patient Name' },
@@ -68,7 +94,6 @@
               title: 'Action',
               orderable: false,
               render: function(rowData) {
-                // escape any single quotes in the JSON
                 const json = JSON.stringify(rowData).replace(/'/g, "&#39;");
                 return `<button onclick="selectRecord('${json}')">Select</button>`;
               }
@@ -92,7 +117,6 @@
       window.parent.postMessage(data, '*');
     }
 
-   
     $(document).ready(fetchData);
   </script>
 </body>
