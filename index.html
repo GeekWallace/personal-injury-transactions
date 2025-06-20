@@ -152,8 +152,13 @@
         ]
       });
 
-      // ✅ Set filtered transactions immediately
-      filteredTransactions = table.rows().data().toArray();
+      // ✅ Keep filtered data updated whenever user searches or filters
+    table.on('draw.dt search.dt', function () {
+        filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
+    });
+
+    // ✅ Initialize filteredTransactions to full data (first draw)
+    filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
     }
 
     function selectRecord(jsonData) {
@@ -166,61 +171,72 @@
         return;
       }
 
+      // Update header
+  document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
+
+  // Fetch and load new transactions
+  fetchPatientTransactions(data.recordId);
+
+  // ✅ Clear Payment Breakdown table and totals
+  if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
+    $('#PaymentBreakdown').DataTable().clear().draw(); // clear rows
+  }
+
       document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
       fetchPatientTransactions(data.recordId);
     }
 
     function calculatePayments() {
-  const pmtDate = document.getElementById('pmtDate').value;
-  const paidAmount = parseFloat(document.getElementById('paidAmount').value);
-  const discountReason = document.getElementById('discountReason').value;
+        const pmtDate = document.getElementById('pmtDate').value;
+        const paidAmount = parseFloat(document.getElementById('paidAmount').value);
+        const discountReason = document.getElementById('discountReason').value;
 
-  if (!pmtDate || isNaN(paidAmount) || !discountReason) {
-    alert("Please fill in all fields.");
-    return;
-  }
+        if (!pmtDate || isNaN(paidAmount) || !discountReason) {
+            alert("Please fill in all fields.");
+            return;
+        }
 
-  // Step 1: Safely parse item charges from filteredTransactions
-  const totalItemCharges = filteredTransactions.reduce((sum, item) => {
-    let rawCharge = item.itemCharge;
-    let charge = 0;
+        // Step 1: Safely parse item charges from filteredTransactions
+        const totalItemCharges = filteredTransactions.reduce((sum, item) => {
+            let rawCharge = item.itemCharge;
+            let charge = 0;
 
-    if (typeof rawCharge === 'number') {
-      charge = rawCharge;
-    } else if (typeof rawCharge === 'string') {
-      charge = parseFloat(rawCharge.replace(/[^0-9.-]+/g, ""));
-    }
+            if (typeof rawCharge === 'number') {
+            charge = rawCharge;
+            } else if (typeof rawCharge === 'string') {
+            charge = parseFloat(rawCharge.replace(/[^0-9.-]+/g, ""));
+            }
 
-    return sum + (isNaN(charge) ? 0 : charge);
-  }, 0);
+            return sum + (isNaN(charge) ? 0 : charge);
+        }, 0);
 
-  if (totalItemCharges === 0) {
-    alert("No valid item charges found.");
-    return;
-  }
+        if (totalItemCharges === 0) {
+            alert("No valid item charges found.");
+            return;
+        }
 
-  // Step 2: Build breakdown data
-  const tableData = filteredTransactions.map(item => {
-    let rawCharge = item.itemCharge;
-    let charge = 0;
+        // Step 2: Build breakdown data
+        const tableData = filteredTransactions.map(item => {
+            let rawCharge = item.itemCharge;
+            let charge = 0;
 
-    if (typeof rawCharge === 'number') {
-      charge = rawCharge;
-    } else if (typeof rawCharge === 'string') {
-      charge = parseFloat(rawCharge.replace(/[^0-9.-]+/g, ""));
-    }
+            if (typeof rawCharge === 'number') {
+            charge = rawCharge;
+            } else if (typeof rawCharge === 'string') {
+            charge = parseFloat(rawCharge.replace(/[^0-9.-]+/g, ""));
+            }
 
-    if (isNaN(charge)) charge = 0;
+            if (isNaN(charge)) charge = 0;
 
-    const pmtToLine = (charge / totalItemCharges) * paidAmount;
-    const discountAmt = charge - pmtToLine;
+            const pmtToLine = (charge / totalItemCharges) * paidAmount;
+            const discountAmt = charge - pmtToLine;
 
-    return {
-      itemCharge: typeof rawCharge === 'string' ? rawCharge : `$${charge.toFixed(2)}`,
-      pmtToLine: `$${pmtToLine.toFixed(2)}`,
-      discountDate: pmtDate,
-      discountAmt: `$${discountAmt.toFixed(2)}`,
-      reason: discountReason
+            return {
+            itemCharge: typeof rawCharge === 'string' ? rawCharge : `$${charge.toFixed(2)}`,
+            pmtToLine: `$${pmtToLine.toFixed(2)}`,
+            discountDate: pmtDate,
+            discountAmt: `$${discountAmt.toFixed(2)}`,
+            reason: discountReason
     };
   });
 
@@ -235,6 +251,7 @@
 
   // Step 4: Render table
   $('#PaymentBreakdown').DataTable({
+    searching: false,
     destroy: true,
     data: tableData,
     columns: [
