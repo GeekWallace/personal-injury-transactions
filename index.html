@@ -171,57 +171,58 @@
     }
 
     function calculatePayments() {
-      const pmtDate = document.getElementById('pmtDate').value;
-      const paidAmount = parseFloat(document.getElementById('paidAmount').value);
-      const discountReason = document.getElementById('discountReason').value;
+  const pmtDate = document.getElementById('pmtDate').value;
+  const paidAmount = parseFloat(document.getElementById('paidAmount').value);
+  const discountReason = document.getElementById('discountReason').value;
 
-      if (!pmtDate || isNaN(paidAmount) || !discountReason) {
-        alert("Please fill in all fields.");
-        return;
-      }
+  if (!pmtDate || isNaN(paidAmount) || !discountReason) {
+    alert("Please fill in all fields.");
+    return;
+  }
 
-      const totalItemCharges = filteredTransactions.reduce((sum, item) => {
-        const charge = parseFloat((item.itemCharge || "0").replace(/[^0-9.-]+/g, "")) || 0;
-        return sum + charge;
-      }, 0);
+  const totalItemCharges = filteredTransactions.reduce((sum, item) => {
+    const charge = parseFloat(String(item.itemCharge).replace(/[^0-9.-]+/g, "")) || 0;
+    return sum + charge;
+  }, 0);
 
-      if (totalItemCharges === 0) {
-        alert("No valid charges to calculate.");
-        return;
-      }
+  if (totalItemCharges === 0) {
+    alert("No valid charges to calculate.");
+    return;
+  }
 
-      const tableData = filteredTransactions.map(item => {
-        const charge = parseFloat((item.itemCharge || "0").replace(/[^0-9.-]+/g, "")) || 0;
-        const pmtToLine = (charge / totalItemCharges) * paidAmount;
-        const discountAmt = charge - pmtToLine;
+  const tableData = filteredTransactions.map(item => {
+    const charge = parseFloat(String(item.itemCharge).replace(/[^0-9.-]+/g, "")) || 0;
+    const pmtToLine = (charge / totalItemCharges) * paidAmount;
+    const discountAmt = charge - pmtToLine;
 
-        return {
-          itemCharge: item.itemCharge,
-          pmtToLine: `$${pmtToLine.toFixed(2)}`,
-          discountDate: pmtDate,
-          discountAmt: `$${discountAmt.toFixed(2)}`,
-          reason: discountReason
-        };
-      });
+    return {
+      itemCharge: item.itemCharge,
+      pmtToLine: `$${pmtToLine.toFixed(2)}`,
+      discountDate: pmtDate,
+      discountAmt: `$${discountAmt.toFixed(2)}`,
+      reason: discountReason
+    };
+  });
 
-      const totalPaid = tableData.reduce((sum, item) => sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g,"")), 0);
-      const totalAdj = tableData.reduce((sum, item) => sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g,"")), 0);
+  const totalPaid = tableData.reduce((sum, item) => sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g, "")), 0);
+  const totalAdj = tableData.reduce((sum, item) => sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g, "")), 0);
 
-      $('#PaymentBreakdown').DataTable({
-        destroy: true,
-        data: tableData,
-        columns: [
-          { data: 'itemCharge', title: 'Item Charge' },
-          { data: 'pmtToLine', title: 'Pmt to Line' },
-          { data: 'discountDate', title: 'Discount Date' },
-          { data: 'discountAmt', title: 'Discount Amt' },
-          { data: 'reason', title: 'Discount Reason' }
-        ]
-      });
+  $('#PaymentBreakdown').DataTable({
+    destroy: true,
+    data: tableData,
+    columns: [
+      { data: 'itemCharge', title: 'Item Charge' },
+      { data: 'pmtToLine', title: 'Pmt to Line' },
+      { data: 'discountDate', title: 'Discount Date' },
+      { data: 'discountAmt', title: 'Discount Amt' },
+      { data: 'reason', title: 'Discount Reason' }
+    ]
+  });
 
-      document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
-      document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
-    }
+  document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
+  document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
+}
+
 
     $(document).ready(function () {
       fetchPatientList();
