@@ -16,34 +16,33 @@
 </head>
 <body>
   <h2>Patient List</h2>
-  <!-- 👇 New table for patient list -->
   <table id="PatientList" class="display"></table>
 
   <h2>Patient Location Transactions</h2>
   <table id="PatientTransactions" class="display"></table>
 
   <h2>Patient Location Payment Details</h2>
-    <div>
-        <label>Pmt Date: <input type="date" id="pmtDate" /></label>
-        <label>Paid Amount: <input type="number" id="paidAmount" /></label>
-        <label>
-            Select Discount Reason:
-            <select id="discountReason">
-                <option value="">-- Select Reason --</option>
-                <option value="Negotiated Amount">Negotiated Amount</option>
-                <option value="Forced Settlement">Forced Settlement</option>
-            </select>
-        </label>
-        <button onclick="calculatePayments()">Calculate</button>
-    </div>
-  
-    <table id="PaymentBreakdown" class="display" style="margin-top: 20px;"></table>
+  <div>
+    <label>Pmt Date: <input type="date" id="pmtDate" /></label>
+    <label>Paid Amount: <input type="number" id="paidAmount" /></label>
+    <label>
+      Select Discount Reason:
+      <select id="discountReason">
+        <option value="">-- Select Reason --</option>
+        <option value="Negotiated Amount">Negotiated Amount</option>
+        <option value="Forced Settlement">Forced Settlement</option>
+      </select>
+    </label>
+    <button onclick="calculatePayments()">Calculate</button>
+  </div>
 
-    <div style="margin-top: 10px;">
-        <strong>Total Paid: <span id="totalPaid">$0.00</span></strong><br />
-        <strong>Total Adj: <span id="totalAdj">$0.00</span></strong><br /><br />
-        <button>Accept Button</button>
-    </div>
+  <table id="PaymentBreakdown" class="display" style="margin-top: 20px;"></table>
+
+  <div style="margin-top: 10px;">
+    <strong>Total Paid: <span id="totalPaid">$0.00</span></strong><br />
+    <strong>Total Adj: <span id="totalAdj">$0.00</span></strong><br /><br />
+    <button>Accept Button</button>
+  </div>
 
   <!-- jQuery & DataTables JS -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -52,29 +51,55 @@
   <script>
     async function fetchData() {
       try {
-        const response = await fetch(
+        // Fetch Patient Transactions
+        const transactionResponse = await fetch(
           'https://hook.us2.make.com/aepagnzieftg83djsradvhe7kckv9urv?patientid=97'
         );
-        if (!response.ok) {
-          throw new Error(`Server returned ${response.status}`);
-        }
-        const data = await response.json();
+        if (!transactionResponse.ok) throw new Error(`Transactions fetch failed: ${transactionResponse.status}`);
+        const transactionData = await transactionResponse.json();
+
+        // Fetch Patient List
+        const listResponse = await fetch(
+          'https://hook.us2.make.com/gi5661l5qgdndkoiqrk6kfqee5ozi3zi'
+        );
+        if (!listResponse.ok) throw new Error(`Patient list fetch failed: ${listResponse.status}`);
+        const listData = await listResponse.json();
 
         const listTableData = [];
         const transactionTableData = [];
 
-        data.forEach(record => {
+        // 🔸 Build Patient List Table
+        listData.forEach(record => {
           const f = record.fields || {};
-
-          // Data for Patient List table
           listTableData.push({
             recordNum: f['Record Num'] || '',
             phone:     f['Phone'] || '',
             email:     f['Email'] || '',
-            dob:       f['Date of Birth'] || ''
+            dob:       f['Date of Birth'] || '',
+            address:   f['address'] || '',
+            city:      f['city'] || '',
+            zip:       f['zip'] || '',
+            state:     f['state'] || '',
           });
+        });
 
-          // Data for Patient Location Transactions table
+        $('#PatientList').DataTable({
+          data: listTableData,
+          columns: [
+            { data: 'recordNum', title: 'Record #' },
+            { data: 'phone',     title: 'Phone' },
+            { data: 'email',     title: 'Email' },
+            { data: 'dob',       title: 'Date of Birth' },
+            { data: 'address',   title: 'Address' },
+            { data: 'city',      title: 'City' },
+            { data: 'zip',       title: 'Zip' },
+            { data: 'state',     title: 'State' },
+          ]
+        });
+
+        // 🔸 Build Patient Transactions Table
+        transactionData.forEach(record => {
+          const f = record.fields || {};
           transactionTableData.push({
             recordNum:   f['Record Num'] || '',
             patientName: f['Patient Name'] || '',
@@ -87,18 +112,6 @@
           });
         });
 
-        // 👇 Initialize Patient List table
-        $('#PatientList').DataTable({
-          data: listTableData,
-          columns: [
-            { data: 'recordNum', title: 'Record #' },
-            { data: 'phone',     title: 'Phone' },
-            { data: 'email',     title: 'Email' },
-            { data: 'dob',       title: 'Date of Birth' }
-          ]
-        });
-
-        // 👇 Initialize Patient Transactions table
         const transactionTable = $('#PatientTransactions').DataTable({
           data: transactionTableData,
           columns: [
@@ -121,11 +134,13 @@
             }
           ]
         });
+
         transactionTable.on('search.dt', function () {
-            filteredTransactions = transactionTable.rows({ search: 'applied' }).data().toArray();
+          filteredTransactions = transactionTable.rows({ search: 'applied' }).data().toArray();
         });
+
       } catch (err) {
-        console.error('Failed to fetch data:', err);
+        console.error('Error loading data:', err);
         alert('Error loading data from server.');
       }
     }
@@ -144,51 +159,50 @@
     let filteredTransactions = [];
 
     function calculatePayments() {
-        const pmtDate = document.getElementById('pmtDate').value;
-        const paidAmount = parseFloat(document.getElementById('paidAmount').value);
-        const discountReason = document.getElementById('discountReason').value;
+      const pmtDate = document.getElementById('pmtDate').value;
+      const paidAmount = parseFloat(document.getElementById('paidAmount').value);
+      const discountReason = document.getElementById('discountReason').value;
 
-        if (!pmtDate || isNaN(paidAmount) || !discountReason) {
-            alert("Please fill in all fields.");
-            return;
-        }
+      if (!pmtDate || isNaN(paidAmount) || !discountReason) {
+        alert("Please fill in all fields.");
+        return;
+      }
 
-        const totalItemCharges = filteredTransactions.reduce((sum, item) => {
-            return sum + parseFloat(item.itemCharge.replace(/[^0-9.-]+/g,""));
-        }, 0);
+      const totalItemCharges = filteredTransactions.reduce((sum, item) => {
+        return sum + parseFloat(item.itemCharge.replace(/[^0-9.-]+/g,""));
+      }, 0);
 
-        const tableData = filteredTransactions.map(item => {
+      const tableData = filteredTransactions.map(item => {
         const itemCharge = parseFloat(item.itemCharge.replace(/[^0-9.-]+/g,""));
         const pmtToLine = (itemCharge / totalItemCharges) * paidAmount;
         const discountAmt = itemCharge - pmtToLine;
 
         return {
-            itemCharge: item.itemCharge,
-            pmtToLine: `$${pmtToLine.toFixed(2)}`,
-            discountDate: pmtDate,
-            discountAmt: `$${discountAmt.toFixed(2)}`,
-            reason: discountReason
+          itemCharge: item.itemCharge,
+          pmtToLine: `$${pmtToLine.toFixed(2)}`,
+          discountDate: pmtDate,
+          discountAmt: `$${discountAmt.toFixed(2)}`,
+          reason: discountReason
         };
-    });
+      });
 
-    const totalPaid = tableData.reduce((sum, item) => sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g,"")), 0);
-    const totalAdj = tableData.reduce((sum, item) => sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g,"")), 0);
+      const totalPaid = tableData.reduce((sum, item) => sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g,"")), 0);
+      const totalAdj = tableData.reduce((sum, item) => sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g,"")), 0);
 
-        $('#PaymentBreakdown').DataTable({
+      $('#PaymentBreakdown').DataTable({
         destroy: true,
         data: tableData,
         columns: [
-        { data: 'itemCharge', title: 'Item Charge' },
-        { data: 'pmtToLine', title: 'Pmt to Line' },
-        { data: 'discountDate', title: 'Discount Date' },
-        { data: 'discountAmt', title: 'Discount Amt' },
-        { data: 'reason', title: 'Discount Reason' }
+          { data: 'itemCharge', title: 'Item Charge' },
+          { data: 'pmtToLine', title: 'Pmt to Line' },
+          { data: 'discountDate', title: 'Discount Date' },
+          { data: 'discountAmt', title: 'Discount Amt' },
+          { data: 'reason', title: 'Discount Reason' }
         ]
-    });
+      });
 
-    document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
-    document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
-
+      document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
+      document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
     }
 
     $(document).ready(fetchData);
