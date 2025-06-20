@@ -4,11 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ninox Grid via Make Proxy</title>
-
-  <!-- Prevent favicon error -->
   <link rel="icon" href="data:," />
-
-  <!-- DataTables CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css" />
 
   <style>
@@ -48,7 +44,7 @@
     <button>Accept Button</button>
   </div>
 
-  <!-- jQuery & DataTables JS -->
+  <!-- Scripts -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
 
@@ -96,29 +92,35 @@
         };
       });
 
-      $('#PatientList').DataTable({
+      const table = $('#PatientList').DataTable({
         destroy: true,
         data: tableData,
         columns: [
           { data: 'recordId', title: 'Record #' },
           { data: 'patientName', title: 'Patient Name' },
-          { data: 'address',     title: 'Address' },
-          { data: 'city',        title: 'City' },
-          { data: 'zip',         title: 'Zip' },
-          { data: 'state',       title: 'State' },
-          { data: 'phone',       title: 'Phone' },
-          { data: 'email',       title: 'Email' },
-          { data: 'dob',         title: 'DOB' },
+          { data: 'address', title: 'Address' },
+          { data: 'city', title: 'City' },
+          { data: 'zip', title: 'Zip' },
+          { data: 'state', title: 'State' },
+          { data: 'phone', title: 'Phone' },
+          { data: 'email', title: 'Email' },
+          { data: 'dob', title: 'DOB' },
           {
             data: null,
             title: 'Action',
             orderable: false,
             render: function(rowData) {
-              const json = JSON.stringify(rowData).replace(/'/g, "&#39;");
-              return `<button onclick="selectRecord('${json}')">Select</button>`;
+              const safeJson = $('<div>').text(JSON.stringify(rowData)).html();
+              return `<button class="select-btn" data-record='${safeJson}'>Select</button>`;
             }
           }
         ]
+      });
+
+      // Attach click handler safely
+      $('#PatientList').on('click', '.select-btn', function () {
+        const jsonData = $(this).attr('data-record');
+        selectRecord(jsonData);
       });
     }
 
@@ -137,21 +139,17 @@
         };
       });
 
-      if ($.fn.DataTable.isDataTable('#PatientTransactions')) {
-        $('#PatientTransactions').DataTable().clear().destroy();
-      }
-
       const table = $('#PatientTransactions').DataTable({
         destroy: true,
         data: tableData,
         columns: [
-          { data: 'recordNum',   title: 'Record #' },
+          { data: 'recordNum', title: 'Record #' },
           { data: 'patientName', title: 'Patient Name' },
-          { data: 'physicians',  title: 'Physician' },
-          { data: 'dos',         title: 'Date of Service' },
-          { data: 'clinic',      title: 'Clinic' },
-          { data: 'firm',        title: 'Firm' },
-          { data: 'itemCharge',  title: 'Charge' },
+          { data: 'physicians', title: 'Physician' },
+          { data: 'dos', title: 'Date of Service' },
+          { data: 'clinic', title: 'Clinic' },
+          { data: 'firm', title: 'Firm' },
+          { data: 'itemCharge', title: 'Charge' },
           { data: 'serviceDesc', title: 'Service Desc.' },
         ]
       });
