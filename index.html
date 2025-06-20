@@ -1,4 +1,30 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ninox Grid via Make Proxy</title>
+
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css" />
+
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { width: 100%; margin-top: 20px; }
+    h2 { font-size: 24px; }
+  </style>
+</head>
+<body>
+  <h2>Patient List</h2>
+  <h2>Patient Location Transactions</h2>
+
+  <table id="PatientTransactions" class="display"></table>
+   <h2>Patient Location Payment Details</h2>
+  <!-- jQuery & DataTables JS -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+
+  <script>
   let filteredTransactions = [];
 
   async function fetchPatientList() {
@@ -160,3 +186,6 @@
     fetchPatientTransactions();
   });
 </script>
+
+</body>
+</html>
