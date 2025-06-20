@@ -35,12 +35,15 @@
     <button onclick="calculatePayments()">Calculate</button>
   </div>
 
-  <table id="PaymentBreakdown" class="display" style="margin-top: 20px;"></table>
+  <!-- Wrapped for toggle visibility -->
+  <div id="breakdownWrapper" style="margin-top: 20px; width: 100%;">
+    <table id="PaymentBreakdown" class="display" style="margin-top: 20px;"></table>
 
-  <div style="margin-top: 10px;">
-    <strong>Total Paid: <span id="totalPaid">$0.00</span></strong><br />
-    <strong>Total Adj: <span id="totalAdj">$0.00</span></strong><br /><br />
-    <button>Accept Button</button>
+    <div style="margin-top: 10px;">
+      <strong>Total Paid: <span id="totalPaid">$0.00</span></strong><br />
+      <strong>Total Adj: <span id="totalAdj">$0.00</span></strong><br /><br />
+      <button>Accept Button</button>
+    </div>
   </div>
 
   <!-- Scripts -->
@@ -152,13 +155,11 @@
         ]
       });
 
-      // ✅ Keep filtered data updated whenever user searches or filters
-    table.on('draw.dt search.dt', function () {
+      table.on('draw.dt search.dt order.dt', function () {
         filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
-    });
+      });
 
-    // ✅ Initialize filteredTransactions to full data (first draw)
-    filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
+      filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
     }
 
     function selectRecord(jsonData) {
@@ -171,104 +172,76 @@
         return;
       }
 
-      // Update header
-  document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
-
-  // Fetch and load new transactions
-  fetchPatientTransactions(data.recordId);
-
-  // ✅ Clear Payment Breakdown table and totals
-  if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
-    $('#PaymentBreakdown').DataTable().clear().draw(); // clear rows
-  }
-
       document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
       fetchPatientTransactions(data.recordId);
+
+      if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
+        $('#PaymentBreakdown').DataTable().clear().destroy();
+      }
+      $('#PaymentBreakdown').empty();
+      document.getElementById('totalPaid').innerText = `$0.00`;
+      document.getElementById('totalAdj').innerText = `$0.00`;
+      document.getElementById('breakdownWrapper').style.display = 'none';
     }
 
     function calculatePayments() {
-        const pmtDate = document.getElementById('pmtDate').value;
-        const paidAmount = parseFloat(document.getElementById('paidAmount').value);
-        const discountReason = document.getElementById('discountReason').value;
+      const pmtDate = document.getElementById('pmtDate').value;
+      const paidAmount = parseFloat(document.getElementById('paidAmount').value);
+      const discountReason = document.getElementById('discountReason').value;
 
-        if (!pmtDate || isNaN(paidAmount) || !discountReason) {
-            alert("Please fill in all fields.");
-            return;
-        }
+      if (!pmtDate || isNaN(paidAmount) || !discountReason) {
+        alert("Please fill in all fields.");
+        return;
+      }
 
-        // Step 1: Safely parse item charges from filteredTransactions
-        const totalItemCharges = filteredTransactions.reduce((sum, item) => {
-            let rawCharge = item.itemCharge;
-            let charge = 0;
+      const totalItemCharges = filteredTransactions.reduce((sum, item) => {
+        let rawCharge = item.itemCharge;
+        let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
+        return sum + (isNaN(charge) ? 0 : charge);
+      }, 0);
 
-            if (typeof rawCharge === 'number') {
-            charge = rawCharge;
-            } else if (typeof rawCharge === 'string') {
-            charge = parseFloat(rawCharge.replace(/[^0-9.-]+/g, ""));
-            }
+      if (totalItemCharges === 0) {
+        alert("No valid item charges found.");
+        return;
+      }
 
-            return sum + (isNaN(charge) ? 0 : charge);
-        }, 0);
+      const tableData = filteredTransactions.map(item => {
+        let rawCharge = item.itemCharge;
+        let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
+        if (isNaN(charge)) charge = 0;
 
-        if (totalItemCharges === 0) {
-            alert("No valid item charges found.");
-            return;
-        }
+        const pmtToLine = (charge / totalItemCharges) * paidAmount;
+        const discountAmt = charge - pmtToLine;
 
-        // Step 2: Build breakdown data
-        const tableData = filteredTransactions.map(item => {
-            let rawCharge = item.itemCharge;
-            let charge = 0;
+        return {
+          itemCharge: typeof rawCharge === 'string' ? rawCharge : `$${charge.toFixed(2)}`,
+          pmtToLine: `$${pmtToLine.toFixed(2)}`,
+          discountDate: pmtDate,
+          discountAmt: `$${discountAmt.toFixed(2)}`,
+          reason: discountReason
+        };
+      });
 
-            if (typeof rawCharge === 'number') {
-            charge = rawCharge;
-            } else if (typeof rawCharge === 'string') {
-            charge = parseFloat(rawCharge.replace(/[^0-9.-]+/g, ""));
-            }
+      const totalPaid = tableData.reduce((sum, item) => sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g, "")), 0);
+      const totalAdj = tableData.reduce((sum, item) => sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g, "")), 0);
 
-            if (isNaN(charge)) charge = 0;
+      $('#PaymentBreakdown').DataTable({
+        searching: false,
+        destroy: true,
+        data: tableData,
+        columns: [
+          { data: 'itemCharge', title: 'Item Charge' },
+          { data: 'pmtToLine', title: 'Pmt to Line' },
+          { data: 'discountDate', title: 'Discount Date' },
+          { data: 'discountAmt', title: 'Discount Amt' },
+          { data: 'reason', title: 'Discount Reason' }
+        ]
+      });
 
-            const pmtToLine = (charge / totalItemCharges) * paidAmount;
-            const discountAmt = charge - pmtToLine;
-
-            return {
-            itemCharge: typeof rawCharge === 'string' ? rawCharge : `$${charge.toFixed(2)}`,
-            pmtToLine: `$${pmtToLine.toFixed(2)}`,
-            discountDate: pmtDate,
-            discountAmt: `$${discountAmt.toFixed(2)}`,
-            reason: discountReason
-    };
-  });
-
-  // Step 3: Compute totals
-  const totalPaid = tableData.reduce((sum, item) => {
-    return sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g, ""));
-  }, 0);
-
-  const totalAdj = tableData.reduce((sum, item) => {
-    return sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g, ""));
-  }, 0);
-
-  // Step 4: Render table
-  $('#PaymentBreakdown').DataTable({
-    searching: false,
-    destroy: true,
-    data: tableData,
-    columns: [
-      { data: 'itemCharge', title: 'Item Charge' },
-      { data: 'pmtToLine', title: 'Pmt to Line' },
-      { data: 'discountDate', title: 'Discount Date' },
-      { data: 'discountAmt', title: 'Discount Amt' },
-      { data: 'reason', title: 'Discount Reason' }
-    ]
-  });
-
-  // Step 5: Update totals
-  document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
-  document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
-}
-
-
+      document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
+      document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
+      document.getElementById('breakdownWrapper').style.display = 'block';
+    }
 
     $(document).ready(function () {
       fetchPatientList();
