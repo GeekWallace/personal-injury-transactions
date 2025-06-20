@@ -71,7 +71,8 @@
       try {
         const url = `https://hook.us2.make.com/aepagnzieftg83djsradvhe7kckv9urv?patientid=${patientId}`;
         const response = await fetch(url);
-        const data = await response.json();
+        const text = await response.text();
+        const data = JSON.parse(text);
         renderTransactionsTable(data);
       } catch (err) {
         console.error('Transaction fetch error:', err);
@@ -91,7 +92,7 @@
           state:        f['State'] || '',
           phone:        f['Phone'] || '',
           email:        f['Email'] || '',
-          dob:          f['DoB'] || ''  // Note: case-sensitive match!
+          dob:          f['DoB'] || ''
         };
       });
 
@@ -136,6 +137,10 @@
         };
       });
 
+      if ($.fn.DataTable.isDataTable('#PatientTransactions')) {
+        $('#PatientTransactions').DataTable().clear().destroy();
+      }
+
       const table = $('#PatientTransactions').DataTable({
         destroy: true,
         data: tableData,
@@ -165,7 +170,6 @@
         return;
       }
 
-      // Optional: display patient name above the transactions table
       document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
 
       const patientId = data.recordId;
@@ -226,7 +230,6 @@
 
     $(document).ready(function () {
       fetchPatientList();
-      // fetchPatientTransactions(); // disabled until patient is selected
     });
   </script>
 </body>
