@@ -22,7 +22,7 @@
   <h2>Patient List</h2>
   <table id="PatientList" class="display"></table>
 
-  <h2>Patient Location Transactions</h2>
+  <h2 id="patientNameHeader">Patient Location Transactions</h2>
   <table id="PatientTransactions" class="display"></table>
 
   <h2>Patient Location Payment Details</h2>
@@ -52,7 +52,6 @@
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
 
-  <!-- Your Script -->
   <script>
     let filteredTransactions = [];
 
@@ -68,9 +67,10 @@
       }
     }
 
-    async function fetchPatientTransactions() {
+    async function fetchPatientTransactions(patientId) {
       try {
-        const response = await fetch('https://hook.us2.make.com/aepagnzieftg83djsradvhe7kckv9urv?patientid=97');
+        const url = `https://hook.us2.make.com/aepagnzieftg83djsradvhe7kckv9urv?patientid=${patientId}`;
+        const response = await fetch(url);
         const data = await response.json();
         renderTransactionsTable(data);
       } catch (err) {
@@ -82,32 +82,32 @@
     function renderPatientListTable(data) {
       const tableData = data.map(record => {
         const f = record.fields || {};
-        console.log(f);
         return {
-          recordId: f['Patient Record Id'] || '',
-          patientName: f['Patient Name'] || '',
-          address:   f['Address'] || '',
-          city:      f['City'] || '',
-          zip:       f['Zip'] || '',
-          state:     f['State'] || '',
-          phone:     f['Phone'] || '',
-          email:     f['Email'] || '',
-          DoB:       f['DOB'] || '',
+          recordId:     f['Patient Record Id'] || '',
+          patientName:  f['Patient Name'] || '',
+          address:      f['Address'] || '',
+          city:         f['City'] || '',
+          zip:          f['Zip'] || '',
+          state:        f['State'] || '',
+          phone:        f['Phone'] || '',
+          email:        f['Email'] || '',
+          dob:          f['DoB'] || ''  // Note: case-sensitive match!
         };
       });
 
       $('#PatientList').DataTable({
+        destroy: true,
         data: tableData,
         columns: [
           { data: 'recordId', title: 'Record #' },
           { data: 'patientName', title: 'Patient Name' },
-          { data: 'address',   title: 'Address' },
-          { data: 'city',      title: 'City' },
-          { data: 'zip',       title: 'Zip' },
-          { data: 'state',     title: 'State' },
-          { data: 'phone',     title: 'Phone' },
-          { data: 'email',     title: 'Email' },
-          { data: 'DoB',       title: 'DOB' },
+          { data: 'address',     title: 'Address' },
+          { data: 'city',        title: 'City' },
+          { data: 'zip',         title: 'Zip' },
+          { data: 'state',       title: 'State' },
+          { data: 'phone',       title: 'Phone' },
+          { data: 'email',       title: 'Email' },
+          { data: 'dob',         title: 'DOB' },
           {
             data: null,
             title: 'Action',
@@ -137,6 +137,7 @@
       });
 
       const table = $('#PatientTransactions').DataTable({
+        destroy: true,
         data: tableData,
         columns: [
           { data: 'recordNum',   title: 'Record #' },
@@ -163,7 +164,17 @@
         console.error('Invalid record data', e);
         return;
       }
-      window.parent.postMessage(data, '*');
+
+      // Optional: display patient name above the transactions table
+      document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
+
+      const patientId = data.recordId;
+      if (!patientId) {
+        alert("Missing Patient Record ID.");
+        return;
+      }
+
+      fetchPatientTransactions(patientId);
     }
 
     function calculatePayments() {
@@ -215,7 +226,7 @@
 
     $(document).ready(function () {
       fetchPatientList();
-      //fetchPatientTransactions();
+      // fetchPatientTransactions(); // disabled until patient is selected
     });
   </script>
 </body>
