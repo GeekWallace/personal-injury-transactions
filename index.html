@@ -11,6 +11,9 @@
     table { width: 100%; margin-top: 20px; }
     h2 { font-size: 24px; margin-top: 40px; }
     label { margin-right: 20px; }
+    .selected-row {
+  background-color: #ffcccc !important;
+}
   </style>
 </head>
 <body>
@@ -37,7 +40,7 @@
 
   <!-- Wrapped for toggle visibility -->
   <div id="breakdownWrapper" style="margin-top: 20px; width: 100%;">
-    <table id="PaymentBreakdown" class="display" style="margin-top: 20px;"></table>
+    <table id="PaymentBreakdown" class="display" style="width:100%;"></table>
 
     <div style="margin-top: 10px;">
       <strong>Total Paid: <span id="totalPaid">$0.00</span></strong><br />
@@ -52,6 +55,7 @@
 
   <script>
     let filteredTransactions = [];
+    let selectedTransactions = [];
 
     async function fetchPatientList() {
       try {
@@ -152,8 +156,43 @@
           { data: 'firm', title: 'Firm' },
           { data: 'itemCharge', title: 'Charge' },
           { data: 'serviceDesc', title: 'Service Desc.' },
+          {
+            data: null,
+            title: 'Action',
+            orderable: false,
+            render: function (rowData) {
+            const safeJson = $('<div>').text(JSON.stringify(rowData)).html();
+            return `<button class="select-transaction-btn" data-record='${safeJson}'>Select</button>`;
+            }
+        }
         ]
       });
+
+      $('#PatientTransactions').on('click', '.select-transaction-btn', function () {
+  const $btn = $(this);
+  const jsonData = $btn.attr('data-record');
+  const $row = $btn.closest('tr');
+
+  try {
+    const row = JSON.parse(jsonData);
+    const index = selectedTransactions.findIndex(item => item.recordNum === row.recordNum);
+
+    if (index === -1) {
+      // Not selected, so add and highlight
+      selectedTransactions.push(row);
+      $row.addClass('selected-row');
+      $btn.text('Unselect');
+    } else {
+      // Already selected, so remove and un-highlight
+      selectedTransactions.splice(index, 1);
+      $row.removeClass('selected-row');
+      $btn.text('Select');
+    }
+  } catch (e) {
+    console.error("Transaction parse error:", e);
+  }
+});
+
 
       table.on('draw.dt search.dt order.dt', function () {
         filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
@@ -175,6 +214,8 @@
       document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
       fetchPatientTransactions(data.recordId);
 
+      selectedTransactions = []; // reset selected transactions
+
       if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
         $('#PaymentBreakdown').DataTable().clear().destroy();
       }
@@ -194,6 +235,11 @@
         return;
       }
 
+      if (selectedTransactions.length === 0) {
+        alert("No transactions selected.");
+        return;
+        }
+
       const totalItemCharges = filteredTransactions.reduce((sum, item) => {
         let rawCharge = item.itemCharge;
         let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
@@ -205,7 +251,7 @@
         return;
       }
 
-      const tableData = filteredTransactions.map(item => {
+      const tableData = selectedTransactions.map(item => {
         let rawCharge = item.itemCharge;
         let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
         if (isNaN(charge)) charge = 0;
