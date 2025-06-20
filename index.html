@@ -82,6 +82,7 @@
     function renderPatientListTable(data) {
       const tableData = data.map(record => {
         const f = record.fields || {};
+        console.log(f);
         return {
           patientName: f['Patient Name'] || '',
           address:   f['Address'] || '',
