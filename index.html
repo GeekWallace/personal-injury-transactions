@@ -84,6 +84,7 @@
         const f = record.fields || {};
         console.log(f);
         return {
+          recordId: f['Patient Record Id'] || '',
           patientName: f['Patient Name'] || '',
           address:   f['Address'] || '',
           city:      f['City'] || '',
@@ -98,7 +99,7 @@
       $('#PatientList').DataTable({
         data: tableData,
         columns: [
-          { data: 'recordNum', title: 'Record #' },
+          { data: 'recordId', title: 'Record #' },
           { data: 'patientName', title: 'Patient Name' },
           { data: 'address',   title: 'Address' },
           { data: 'city',      title: 'City' },
@@ -107,6 +108,15 @@
           { data: 'phone',     title: 'Phone' },
           { data: 'email',     title: 'Email' },
           { data: 'DoB',       title: 'DOB' },
+          {
+            data: null,
+            title: 'Action',
+            orderable: false,
+            render: function(rowData) {
+              const json = JSON.stringify(rowData).replace(/'/g, "&#39;");
+              return `<button onclick="selectRecord('${json}')">Select</button>`;
+            }
+          }
         ]
       });
     }
@@ -137,15 +147,6 @@
           { data: 'firm',        title: 'Firm' },
           { data: 'itemCharge',  title: 'Charge' },
           { data: 'serviceDesc', title: 'Service Desc.' },
-          {
-            data: null,
-            title: 'Action',
-            orderable: false,
-            render: function(rowData) {
-              const json = JSON.stringify(rowData).replace(/'/g, "&#39;");
-              return `<button onclick="selectRecord('${json}')">Select</button>`;
-            }
-          }
         ]
       });
 
