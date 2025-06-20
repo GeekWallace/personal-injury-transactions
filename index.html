@@ -23,6 +23,27 @@
   <table id="PatientTransactions" class="display"></table>
 
   <h2>Patient Location Payment Details</h2>
+    <div>
+        <label>Pmt Date: <input type="date" id="pmtDate" /></label>
+        <label>Paid Amount: <input type="number" id="paidAmount" /></label>
+        <label>
+            Select Discount Reason:
+            <select id="discountReason">
+                <option value="">-- Select Reason --</option>
+                <option value="Negotiated Amount">Negotiated Amount</option>
+                <option value="Forced Settlement">Forced Settlement</option>
+            </select>
+        </label>
+        <button onclick="calculatePayments()">Calculate</button>
+    </div>
+  
+    <table id="PaymentBreakdown" class="display" style="margin-top: 20px;"></table>
+
+    <div style="margin-top: 10px;">
+        <strong>Total Paid: <span id="totalPaid">$0.00</span></strong><br />
+        <strong>Total Adj: <span id="totalAdj">$0.00</span></strong><br /><br />
+        <button>Accept Button</button>
+    </div>
 
   <!-- jQuery & DataTables JS -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -78,7 +99,7 @@
         });
 
         // 👇 Initialize Patient Transactions table
-        $('#PatientTransactions').DataTable({
+        const transactionTable = $('#PatientTransactions').DataTable({
           data: transactionTableData,
           columns: [
             { data: 'recordNum',   title: 'Record #' },
@@ -100,6 +121,9 @@
             }
           ]
         });
+        transactionTable.on('search.dt', function () {
+            filteredTransactions = transactionTable.rows({ search: 'applied' }).data().toArray();
+        });
       } catch (err) {
         console.error('Failed to fetch data:', err);
         alert('Error loading data from server.');
@@ -115,6 +139,56 @@
         return;
       }
       window.parent.postMessage(data, '*');
+    }
+
+    let filteredTransactions = [];
+
+    function calculatePayments() {
+        const pmtDate = document.getElementById('pmtDate').value;
+        const paidAmount = parseFloat(document.getElementById('paidAmount').value);
+        const discountReason = document.getElementById('discountReason').value;
+
+        if (!pmtDate || isNaN(paidAmount) || !discountReason) {
+            alert("Please fill in all fields.");
+            return;
+        }
+
+        const totalItemCharges = filteredTransactions.reduce((sum, item) => {
+            return sum + parseFloat(item.itemCharge.replace(/[^0-9.-]+/g,""));
+        }, 0);
+
+        const tableData = filteredTransactions.map(item => {
+        const itemCharge = parseFloat(item.itemCharge.replace(/[^0-9.-]+/g,""));
+        const pmtToLine = (itemCharge / totalItemCharges) * paidAmount;
+        const discountAmt = itemCharge - pmtToLine;
+
+        return {
+            itemCharge: item.itemCharge,
+            pmtToLine: `$${pmtToLine.toFixed(2)}`,
+            discountDate: pmtDate,
+            discountAmt: `$${discountAmt.toFixed(2)}`,
+            reason: discountReason
+        };
+    });
+
+    const totalPaid = tableData.reduce((sum, item) => sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g,"")), 0);
+    const totalAdj = tableData.reduce((sum, item) => sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g,"")), 0);
+
+        $('#PaymentBreakdown').DataTable({
+        destroy: true,
+        data: tableData,
+        columns: [
+        { data: 'itemCharge', title: 'Item Charge' },
+        { data: 'pmtToLine', title: 'Pmt to Line' },
+        { data: 'discountDate', title: 'Discount Date' },
+        { data: 'discountAmt', title: 'Discount Amt' },
+        { data: 'reason', title: 'Discount Reason' }
+        ]
+    });
+
+    document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
+    document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
+
     }
 
     $(document).ready(fetchData);
