@@ -180,23 +180,43 @@
     return;
   }
 
+  // Step 1: Safely parse item charges from filteredTransactions
   const totalItemCharges = filteredTransactions.reduce((sum, item) => {
-    const charge = parseFloat(String(item.itemCharge).replace(/[^0-9.-]+/g, "")) || 0;
-    return sum + charge;
+    let rawCharge = item.itemCharge;
+    let charge = 0;
+
+    if (typeof rawCharge === 'number') {
+      charge = rawCharge;
+    } else if (typeof rawCharge === 'string') {
+      charge = parseFloat(rawCharge.replace(/[^0-9.-]+/g, ""));
+    }
+
+    return sum + (isNaN(charge) ? 0 : charge);
   }, 0);
 
   if (totalItemCharges === 0) {
-    alert("No valid charges to calculate.");
+    alert("No valid item charges found.");
     return;
   }
 
+  // Step 2: Build breakdown data
   const tableData = filteredTransactions.map(item => {
-    const charge = parseFloat(String(item.itemCharge).replace(/[^0-9.-]+/g, "")) || 0;
+    let rawCharge = item.itemCharge;
+    let charge = 0;
+
+    if (typeof rawCharge === 'number') {
+      charge = rawCharge;
+    } else if (typeof rawCharge === 'string') {
+      charge = parseFloat(rawCharge.replace(/[^0-9.-]+/g, ""));
+    }
+
+    if (isNaN(charge)) charge = 0;
+
     const pmtToLine = (charge / totalItemCharges) * paidAmount;
     const discountAmt = charge - pmtToLine;
 
     return {
-      itemCharge: item.itemCharge,
+      itemCharge: typeof rawCharge === 'string' ? rawCharge : `$${charge.toFixed(2)}`,
       pmtToLine: `$${pmtToLine.toFixed(2)}`,
       discountDate: pmtDate,
       discountAmt: `$${discountAmt.toFixed(2)}`,
@@ -204,9 +224,16 @@
     };
   });
 
-  const totalPaid = tableData.reduce((sum, item) => sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g, "")), 0);
-  const totalAdj = tableData.reduce((sum, item) => sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g, "")), 0);
+  // Step 3: Compute totals
+  const totalPaid = tableData.reduce((sum, item) => {
+    return sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g, ""));
+  }, 0);
 
+  const totalAdj = tableData.reduce((sum, item) => {
+    return sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g, ""));
+  }, 0);
+
+  // Step 4: Render table
   $('#PaymentBreakdown').DataTable({
     destroy: true,
     data: tableData,
@@ -219,9 +246,11 @@
     ]
   });
 
+  // Step 5: Update totals
   document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
   document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
 }
+
 
 
     $(document).ready(function () {
