@@ -1,297 +1,418 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ninox Grid via Make Proxy</title>
-  <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css" />
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { width: 100%; margin-top: 20px; }
-    h2 { font-size: 24px; margin-top: 40px; }
-    label { margin-right: 20px; }
-    .selected-row {
-  background-color: #ffcccc !important;
-}
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ninox Grid via Make Proxy</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #007bff;
+            padding: 15px 30px;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        main {
+            margin-top: 80px;
+        }
+        section {
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        header {
+            text-align: center;
+            color: #000000;
+        }
+        h2 {
+          text-align: left;
+          font-size: 18px;
+          border-left: 4px solid #007bff;
+          padding-left: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            margin-top: 10px;
+        }
+        input, select, button {
+            padding: 8px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        button {
+          background-color: #007bff;
+          color: white;
+          border: none;
+        }
+        button:hover {
+          background-color: #0056b3;
+        }
+        .selected-row {
+          background-color: #dcfadc !important; /* Pale green */
+        }
+        #breakdownWrapper strong {
+            display: inline-block;
+            margin-bottom: 6px;
+            transition: all 0.3s ease-in-out;
+        }
+        .select-btn,
+        .select-transaction-btn {
+          cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-  <h2>Patient List</h2>
-  <table id="PatientList" class="display"></table>
+<header>
+    <h2 style="margin: 0;">Patient Payment Portal</h2>
+</header>
+    <main>
+        <section>
+            <h2>Patient List</h2>
+            <table id="PatientList" class="display"></table>
+        </section>
+        <section>
+            <h2 id="patientNameHeader">Patient Location Transactions</h2>
+            <table id="PatientTransactions" class="display"></table>
+        </section>
+        <section>
+            <h2>Patient Location Payment Details</h2>
+            <div>
+                <label>Pmt Date: <input type="date" id="pmtDate" /></label>
+                <label>Paid Amount: <input type="number" id="paidAmount" /></label>
+                <label>
+                    Select Discount Reason:
+                    <select id="discountReason">
+                        <option value="">-- Select Reason --</option>
+                        <option value="Negotiated Amount">Negotiated Amount</option>
+                        <option value="Forced Settlement">Forced Settlement</option>
+                    </select>
+                </label>
+                <button onclick="calculatePayments()">Calculate</button>
+            </div>
+            <div id="breakdownWrapper" style="margin-top: 20px; width: 100%; display: none;">
+                <table id="PaymentBreakdown" class="display" style="width:100%;"></table>
+                <div style="margin-top: 10px;">
+                    <strong>Total Paid: <span id="totalPaid">$0.00</span></strong><br />
+                    <strong>Total Adj: <span id="totalAdj">$0.00</span></strong><br /><br />
+                    <button>Accept Button</button>
+                </div>
+            </div>
+        </section>
+    </main>
 
-  <h2 id="patientNameHeader">Patient Location Transactions</h2>
-  <table id="PatientTransactions" class="display"></table>
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
 
-  <h2>Patient Location Payment Details</h2>
-  <div>
-    <label>Pmt Date: <input type="date" id="pmtDate" /></label>
-    <label>Paid Amount: <input type="number" id="paidAmount" /></label>
-    <label>
-      Select Discount Reason:
-      <select id="discountReason">
-        <option value="">-- Select Reason --</option>
-        <option value="Negotiated Amount">Negotiated Amount</option>
-        <option value="Forced Settlement">Forced Settlement</option>
-      </select>
-    </label>
-    <button onclick="calculatePayments()">Calculate</button>
-  </div>
+    <script>
+      // all visible rows in the transactions table
+      let filteredTransactions = [];
 
-  <!-- Wrapped for toggle visibility -->
-  <div id="breakdownWrapper" style="margin-top: 20px; width: 100%;">
-    <table id="PaymentBreakdown" class="display" style="width:100%;"></table>
+      // transactions selected by a user
+      let selectedTransactions = [];
 
-    <div style="margin-top: 10px;">
-      <strong>Total Paid: <span id="totalPaid">$0.00</span></strong><br />
-      <strong>Total Adj: <span id="totalAdj">$0.00</span></strong><br /><br />
-      <button>Accept Button</button>
-    </div>
-  </div>
+      function formatDate(dateString) {
+          if (!dateString) return '';
+          const date = new Date(dateString);
+          if (isNaN(date)) return dateString; // fallback if invalid
 
-  <!-- Scripts -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+          const mm = String(date.getMonth() + 1).padStart(2, '0');
+          const dd = String(date.getDate()).padStart(2, '0');
+          const yyyy = date.getFullYear();
 
-  <script>
-    let filteredTransactions = [];
-    let selectedTransactions = [];
-
-    async function fetchPatientList() {
-      try {
-        const response = await fetch('https://hook.us2.make.com/gi5661l5qgdndkoiqrk6kfqee5ozi3zi');
-        const text = await response.text();
-        const data = JSON.parse(text);
-        renderPatientListTable(data);
-      } catch (err) {
-        console.error('Patient list fetch error:', err);
-        alert('Could not load Patient List.');
+          return `${mm}/${dd}/${yyyy}`;
       }
-    }
 
-    async function fetchPatientTransactions(patientId) {
-      try {
-        const url = `https://hook.us2.make.com/aepagnzieftg83djsradvhe7kckv9urv?patientid=${patientId}`;
-        const response = await fetch(url);
-        const text = await response.text();
-        const data = JSON.parse(text);
-        renderTransactionsTable(data);
-      } catch (err) {
-        console.error('Transaction fetch error:', err);
-        alert('Could not load Patient Transactions.');
+
+      // call the webhook to fetch data, parse it and send it to renderPatientListTable 
+      async function fetchPatientList() {
+        try {
+          const response = await fetch('https://hook.us2.make.com/gi5661l5qgdndkoiqrk6kfqee5ozi3zi');
+          const text = await response.text();
+          const data = JSON.parse(text);
+          renderPatientListTable(data);
+        } catch (err) {
+          console.error('Patient list fetch error:', err);
+          alert('Could not load Patient List.');
+        }
       }
-    }
 
-    function renderPatientListTable(data) {
-      const tableData = data.map(record => {
-        const f = record.fields || {};
-        return {
-          recordId:     f['Patient Record Id'] || '',
-          patientName:  f['Patient Name'] || '',
-          address:      f['Address'] || '',
-          city:         f['City'] || '',
-          zip:          f['Zip'] || '',
-          state:        f['State'] || '',
-          phone:        f['Phone'] || '',
-          email:        f['Email'] || '',
-          dob:          f['DoB'] || ''
-        };
-      });
+      async function fetchPatientTransactions(patientId) {
+        try {
+          const url = `https://hook.us2.make.com/aepagnzieftg83djsradvhe7kckv9urv?patientid=${patientId}`;
+          const response = await fetch(url);
+          const text = await response.text();
+          const data = JSON.parse(text);
+          renderTransactionsTable(data);
+        } catch (err) {
+          console.error('Transaction fetch error:', err);
+          alert('Could not load Patient Transactions.');
+        }
+      }
 
-      const table = $('#PatientList').DataTable({
-        destroy: true,
-        data: tableData,
-        columns: [
-          { data: 'recordId', title: 'Record #' },
-          { data: 'patientName', title: 'Patient Name' },
-          { data: 'address', title: 'Address' },
-          { data: 'city', title: 'City' },
-          { data: 'zip', title: 'Zip' },
-          { data: 'state', title: 'State' },
-          { data: 'phone', title: 'Phone' },
-          { data: 'email', title: 'Email' },
-          { data: 'dob', title: 'DOB' },
-          {
-            data: null,
-            title: 'Action',
-            orderable: false,
-            render: function(rowData) {
-              const safeJson = $('<div>').text(JSON.stringify(rowData)).html();
-              return `<button class="select-btn" data-record='${safeJson}'>Select</button>`;
+      function renderPatientListTable(data) {
+        const tableData = data.map(record => {
+          const f = record.fields || {};
+          return {
+            recordId:     f['Patient Record Id'] || '',
+            patientName:  f['Patient Name'] || '',
+            address:      f['Address'] || '',
+            city:         f['City'] || '',
+            zip:          f['Zip'] || '',
+            state:        f['State'] || '',
+            phone:        f['Phone'] || '',
+            email:        f['Email'] || '',
+            dob:          formatDate(f['DoB']) || ''
+          };
+        });
+
+        const table = $('#PatientList').DataTable({
+          destroy: true,
+          data: tableData,
+          columns: [
+            { data: 'recordId', title: 'Record #' },
+            { data: 'patientName', title: 'Patient Name' },
+            { data: 'address', title: 'Address' },
+            { data: 'city', title: 'City' },
+            { data: 'zip', title: 'Zip' },
+            { data: 'state', title: 'State' },
+            { data: 'phone', title: 'Phone' },
+            { data: 'email', title: 'Email' },
+            { data: 'dob', title: 'DOB' },
+            {
+              data: null,
+              title: 'Action',
+              orderable: false,
+              render: function(rowData) {
+                const safeJson = $('<div>').text(JSON.stringify(rowData)).html();
+                return `<button class="select-btn" data-record='${safeJson}'>Select</button>`;
+              }
             }
+          ]
+        });
+
+        $('#PatientList').on('click', '.select-btn', function () {
+          const jsonData = $(this).attr('data-record');
+          selectRecord(jsonData);
+        });
+      }
+
+      function renderTransactionsTable(data) {
+        const tableData = data.map(record => {
+          const f = record.fields || {};
+          return {
+            recordNum:   f['Record Num'] || '',
+            patientName: f['Patient Name'] || '',
+            physicians:  f['Physicians'] || '',
+            dos:         formatDate(f['DoS']) || '',
+            clinic:      f['Clinic'] || '',
+            firm:        f['Firm'] || '',
+            itemCharge:  f['Item Charge'] || '',
+            serviceDesc: f['Full Service Description'] || ''
+          };
+        });
+
+        const table = $('#PatientTransactions').DataTable({
+          fixedHeader: true,
+          destroy: true,
+          data: tableData,
+          columns: [
+            { data: 'recordNum', title: 'Record #' },
+            { data: 'patientName', title: 'Patient Name' },
+            { data: 'physicians', title: 'Physician' },
+            { data: 'dos', title: 'Date of Service' },
+            { data: 'clinic', title: 'Clinic' },
+            { data: 'firm', title: 'Firm' },
+            { data: 'itemCharge',
+              title: 'Charge',
+              render: function (data, type, row) {
+                  let num = parseFloat(data);
+                  if (isNaN(num)) return data;
+                  return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                }
+            },
+            { data: 'serviceDesc', title: 'Service Desc.' },
+            {
+              data: null,
+              title: 'Action',
+              orderable: false,
+              render: function (rowData) {
+                  const safeJson = $('<div>').text(JSON.stringify(rowData)).html();
+                  return `<button class="select-transaction-btn" data-record='${safeJson}'>Select</button>`;
+              }
           }
-        ]
-      });
+          ]
+        });
 
-      $('#PatientList').on('click', '.select-btn', function () {
-        const jsonData = $(this).attr('data-record');
-        selectRecord(jsonData);
-      });
-    }
+        table.on('draw.dt search.dt order.dt', function () {
+          filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
+        });
 
-    function renderTransactionsTable(data) {
-      const tableData = data.map(record => {
-        const f = record.fields || {};
-        return {
-          recordNum:   f['Record Num'] || '',
-          patientName: f['Patient Name'] || '',
-          physicians:  f['Physicians'] || '',
-          dos:         f['DoS'] || '',
-          clinic:      f['Clinic'] || '',
-          firm:        f['Firm'] || '',
-          itemCharge:  f['Item Charge'] || '',
-          serviceDesc: f['Full Service Description'] || ''
-        };
-      });
-
-      const table = $('#PatientTransactions').DataTable({
-        destroy: true,
-        data: tableData,
-        columns: [
-          { data: 'recordNum', title: 'Record #' },
-          { data: 'patientName', title: 'Patient Name' },
-          { data: 'physicians', title: 'Physician' },
-          { data: 'dos', title: 'Date of Service' },
-          { data: 'clinic', title: 'Clinic' },
-          { data: 'firm', title: 'Firm' },
-          { data: 'itemCharge', title: 'Charge' },
-          { data: 'serviceDesc', title: 'Service Desc.' },
-          {
-            data: null,
-            title: 'Action',
-            orderable: false,
-            render: function (rowData) {
-            const safeJson = $('<div>').text(JSON.stringify(rowData)).html();
-            return `<button class="select-transaction-btn" data-record='${safeJson}'>Select</button>`;
-            }
-        }
-        ]
-      });
-
-      $('#PatientTransactions').on('click', '.select-transaction-btn', function () {
-  const $btn = $(this);
-  const jsonData = $btn.attr('data-record');
-  const $row = $btn.closest('tr');
-
-  try {
-    const row = JSON.parse(jsonData);
-    const index = selectedTransactions.findIndex(item => item.recordNum === row.recordNum);
-
-    if (index === -1) {
-      // Not selected, so add and highlight
-      selectedTransactions.push(row);
-      $row.addClass('selected-row');
-      $btn.text('Unselect');
-    } else {
-      // Already selected, so remove and un-highlight
-      selectedTransactions.splice(index, 1);
-      $row.removeClass('selected-row');
-      $btn.text('Select');
-    }
-  } catch (e) {
-    console.error("Transaction parse error:", e);
-  }
-});
-
-
-      table.on('draw.dt search.dt order.dt', function () {
         filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
+      }
+
+      $(document).off('click', '.select-transaction-btn').on('click', '.select-transaction-btn', function () {
+          const $btn = $(this);
+          const jsonData = $btn.attr('data-record');
+          const $row = $btn.closest('tr');
+
+          try {
+              const row = JSON.parse(jsonData);
+              const index = selectedTransactions.findIndex(item => item.recordNum === row.recordNum);
+
+              if (index === -1) {
+                  selectedTransactions.push(row);
+                  $row.addClass('selected-row');
+                  $btn.text('Unselect');
+              } else {
+                  selectedTransactions.splice(index, 1);
+                  $row.removeClass('selected-row');
+                  $btn.text('Select');
+              }
+          } catch (e) {
+              console.error("Transaction parse error:", e);
+          }
       });
 
-      filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
-    }
-
-    function selectRecord(jsonData) {
-      let data;
-      try {
-        data = JSON.parse(jsonData);
-      } catch (e) {
-        console.error("⚠️ JSON.parse error:", e);
-        alert("Invalid data format. Check console.");
-        return;
-      }
-
-      document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
-      fetchPatientTransactions(data.recordId);
-
-      selectedTransactions = []; // reset selected transactions
-
-      if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
-        $('#PaymentBreakdown').DataTable().clear().destroy();
-      }
-      $('#PaymentBreakdown').empty();
-      document.getElementById('totalPaid').innerText = `$0.00`;
-      document.getElementById('totalAdj').innerText = `$0.00`;
-      document.getElementById('breakdownWrapper').style.display = 'none';
-    }
-
-    function calculatePayments() {
-      const pmtDate = document.getElementById('pmtDate').value;
-      const paidAmount = parseFloat(document.getElementById('paidAmount').value);
-      const discountReason = document.getElementById('discountReason').value;
-
-      if (!pmtDate || isNaN(paidAmount) || !discountReason) {
-        alert("Please fill in all fields.");
-        return;
-      }
-
-      if (selectedTransactions.length === 0) {
-        alert("No transactions selected.");
-        return;
+      function selectRecord(jsonData) {
+        let data;
+        try {
+          data = JSON.parse(jsonData);
+        } catch (e) {
+          console.error("JSON.parse error:", e);
+          alert("Invalid data format. Check console.");
+          return;
         }
 
-      const totalItemCharges = filteredTransactions.reduce((sum, item) => {
-        let rawCharge = item.itemCharge;
-        let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
-        return sum + (isNaN(charge) ? 0 : charge);
-      }, 0);
+        document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
+        fetchPatientTransactions(data.recordId);
 
-      if (totalItemCharges === 0) {
-        alert("No valid item charges found.");
-        return;
+        selectedTransactions = []; // reset selected transactions
+
+        if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
+          $('#PaymentBreakdown').DataTable().clear().destroy();
+        }
+
+        $('#PaymentBreakdown').empty();
+          document.getElementById('totalPaid').innerText = `$0.00`;
+          document.getElementById('totalAdj').innerText = `$0.00`;
+          document.getElementById('breakdownWrapper').style.display = 'none';
+
+        // 👇 Scroll to transactions table
+        document.getElementById('PatientTransactions').scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
       }
 
-      const tableData = selectedTransactions.map(item => {
-        let rawCharge = item.itemCharge;
-        let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
-        if (isNaN(charge)) charge = 0;
+      function calculatePayments() {
+        const pmtDate = document.getElementById('pmtDate').value;
+        const paidAmount = parseFloat(document.getElementById('paidAmount').value);
+        const discountReason = document.getElementById('discountReason').value;
 
-        const pmtToLine = (charge / totalItemCharges) * paidAmount;
-        const discountAmt = charge - pmtToLine;
+        if (!pmtDate || isNaN(paidAmount) || !discountReason) {
+          alert("Please fill in all fields.");
+          return;
+        }
 
-        return {
-          itemCharge: typeof rawCharge === 'string' ? rawCharge : `$${charge.toFixed(2)}`,
-          pmtToLine: `$${pmtToLine.toFixed(2)}`,
-          discountDate: pmtDate,
-          discountAmt: `$${discountAmt.toFixed(2)}`,
-          reason: discountReason
-        };
+        if (selectedTransactions.length === 0) {
+          alert("No transactions selected.");
+          return;
+          }
+
+        const totalItemCharges = filteredTransactions.reduce((sum, item) => {
+          let rawCharge = item.itemCharge;
+          let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
+          return sum + (isNaN(charge) ? 0 : charge);
+        }, 0);
+
+        if (totalItemCharges === 0) {
+          alert("No valid item charges found.");
+          return;
+        }
+
+        const tableData = selectedTransactions.map(item => {
+          let rawCharge = item.itemCharge;
+          let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
+          if (isNaN(charge)) charge = 0;
+
+          const pmtToLine = (charge / totalItemCharges) * paidAmount;
+          const discountAmt = charge - pmtToLine;
+
+          return {
+            itemCharge: typeof rawCharge === 'string' ? rawCharge : `$${charge.toFixed(2)}`,
+            pmtToLine: `$${pmtToLine.toFixed(2)}`,
+            discountDate: formatDate(pmtDate),
+            discountAmt: `$${discountAmt.toFixed(2)}`,
+            reason: discountReason
+          };
+        });
+
+        const totalPaid = tableData.reduce((sum, item) => sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g, "")), 0);
+        const totalAdj = tableData.reduce((sum, item) => sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g, "")), 0);
+
+        $('#PaymentBreakdown').DataTable({
+          searching: false,
+          destroy: true,
+          data: tableData,
+          columns: [
+            {
+              data: 'itemCharge',
+              title: 'Item Charge',
+              render: function (data, type, row) {
+                let num = parseFloat(data.replace(/[^0-9.-]+/g, ""));
+                if (isNaN(num)) return data;
+                return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+              }
+            },
+            {
+              data: 'pmtToLine',
+              title: 'Pmt to Line',
+              render: function (data, type, row) {
+                let num = parseFloat(data.replace(/[^0-9.-]+/g, ""));
+                if (isNaN(num)) return data;
+                return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+              }
+            },
+            { data: 'discountDate', title: 'Discount Date' },
+            {
+              data: 'discountAmt',
+              title: 'Discount Amt',
+              render: function (data, type, row) {
+                let num = parseFloat(data.replace(/[^0-9.-]+/g, ""));
+                if (isNaN(num)) return data;
+                return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+              }
+            },
+            { data: 'reason', title: 'Discount Reason' }
+          ]
+        });
+
+        document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
+        document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
+        document.getElementById('breakdownWrapper').style.display = 'block';
+      }
+
+      $(document).ready(function () {
+        fetchPatientList();
       });
-
-      const totalPaid = tableData.reduce((sum, item) => sum + parseFloat(item.pmtToLine.replace(/[^0-9.-]+/g, "")), 0);
-      const totalAdj = tableData.reduce((sum, item) => sum + parseFloat(item.discountAmt.replace(/[^0-9.-]+/g, "")), 0);
-
-      $('#PaymentBreakdown').DataTable({
-        searching: false,
-        destroy: true,
-        data: tableData,
-        columns: [
-          { data: 'itemCharge', title: 'Item Charge' },
-          { data: 'pmtToLine', title: 'Pmt to Line' },
-          { data: 'discountDate', title: 'Discount Date' },
-          { data: 'discountAmt', title: 'Discount Amt' },
-          { data: 'reason', title: 'Discount Reason' }
-        ]
-      });
-
-      document.getElementById('totalPaid').innerText = `$${totalPaid.toFixed(2)}`;
-      document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
-      document.getElementById('breakdownWrapper').style.display = 'block';
-    }
-
-    $(document).ready(function () {
-      fetchPatientList();
-    });
-  </script>
+    </script>
 </body>
 </html>
