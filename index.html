@@ -4,79 +4,173 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ninox Grid via Make Proxy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css" />
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background: #f5f7fa;
-        }
-        header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #007bff;
-            padding: 15px 30px;
-            z-index: 1000;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        main {
-            margin-top: 80px;
-        }
-        section {
-            background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-            padding: 20px;
-            margin-bottom: 30px;
-        }
-        header {
-            text-align: center;
-            color: #000000;
-        }
-        h2 {
-          text-align: left;
-          font-size: 18px;
-          border-left: 4px solid #007bff;
-          padding-left: 10px;
-        }
-        label {
-            display: block;
-            margin-bottom: 10px;
-        }
-        table {
-            width: 100%;
-            margin-top: 10px;
-        }
-        input, select, button {
-            padding: 8px;
-            font-size: 14px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-        }
-        button {
-          background-color: #007bff;
-          color: white;
-          border: none;
-        }
-        button:hover {
-          background-color: #0056b3;
-        }
-        .selected-row {
-          background-color: #dcfadc !important; /* Pale green */
-        }
-        #breakdownWrapper strong {
-            display: inline-block;
-            margin-bottom: 6px;
-            transition: all 0.3s ease-in-out;
-        }
-        .select-btn,
-        .select-transaction-btn {
-          cursor: pointer;
-        }
-    </style>
+  body {
+      font-family: 'Poppins', sans-serif;
+      padding: 20px;
+      background: #f5f7fa;
+      margin: 0;
+  }
+
+  header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #007bff;
+      padding: 15px 30px;
+      z-index: 1000;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      text-align: center;
+      color: #ffffff;
+  }
+
+  main {
+      margin-top: 100px;
+  }
+
+  section {
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      padding: 20px;
+      margin-bottom: 30px;
+  }
+
+  h2 {
+      font-size: 18px;
+      border-left: 4px solid #007bff;
+      padding-left: 10px;
+      margin-bottom: 15px;
+  }
+
+  label {
+      display: block;
+      margin-bottom: 10px;
+  }
+
+  input, select, button {
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+  }
+
+  button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+  }
+
+  button:hover {
+      background-color: #0056b3;
+  }
+
+  table {
+      width: 100% !important;
+      overflow-x: auto;
+      display: block;
+  }
+
+  .selected-row {
+      background-color: #dcfadc !important;
+  }
+
+  #breakdownWrapper strong {
+      display: inline-block;
+      margin-bottom: 6px;
+      transition: all 0.3s ease-in-out;
+  }
+
+  .select-btn,
+  .select-transaction-btn {
+      cursor: pointer;
+  }
+
+  /* Responsive layout for form controls */
+  section > div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+  }
+
+  section > div > label {
+      flex: 1 1 200px;
+      min-width: 140px;
+  }
+
+  #breakdownWrapper {
+      overflow-x: auto;
+  }
+
+  /* Responsive tables */
+  table.dataTable {
+      width: 100% !important;
+      overflow-x: auto;
+  }
+
+  /* Improve header readability on small screens */
+  @media (max-width: 768px) {
+      body {
+          padding: 10px;
+      }
+
+      header {
+          padding: 10px;
+      }
+
+      h2 {
+          font-size: 16px;
+      }
+
+      section {
+          padding: 15px;
+      }
+
+      section > div {
+          flex-direction: column;
+        gap: 6px; /* reduce vertical spacing between form fields */
+      }
+
+      section > div > label {
+          width: 100%;
+        margin-bottom: 0px; /* remove extra bottom margin on labels */
+      }
+
+      label {
+        margin-bottom: 4px !important; /* override default */
+    }
+
+    input,
+    select {
+        margin-bottom: 4px; /* reduce spacing between form controls */
+    }
+
+    button {
+        font-size: 14px;
+        margin-top: 6px; /* reduce gap above calculate button */
+    }
+      table {
+          font-size: 12px;
+      }
+
+      button {
+          font-size: 14px;
+      }
+
+      #breakdownWrapper strong {
+          display: block;
+      }
+  }
+</style>
+
 </head>
 <body>
 <header>
@@ -111,7 +205,7 @@
                 <div style="margin-top: 10px;">
                     <strong>Total Paid: <span id="totalPaid">$0.00</span></strong><br />
                     <strong>Total Adj: <span id="totalAdj">$0.00</span></strong><br /><br />
-                    <button>Accept Button</button>
+                    <button onclick="submitToNinox()">Accept</button>
                 </div>
             </div>
         </section>
@@ -208,6 +302,23 @@
           ]
         });
 
+        $('#PatientList').on('search.dt', function () {
+        if ($.fn.DataTable.isDataTable('#PatientTransactions')) {
+          $('#PatientTransactions').DataTable().clear().destroy();
+          $('#PatientTransactions').empty();
+        }
+        if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
+          $('#PaymentBreakdown').DataTable().clear().destroy();
+          $('#PaymentBreakdown').empty();
+        }
+        selectedTransactions = [];
+        filteredTransactions = [];
+        document.getElementById('patientNameHeader').innerText = 'Patient Location Transactions';
+        document.getElementById('totalPaid').innerText = '$0.00';
+        document.getElementById('totalAdj').innerText = '$0.00';
+        document.getElementById('breakdownWrapper').style.display = 'none';
+      });
+
         $('#PatientList').on('click', '.select-btn', function () {
           const jsonData = $(this).attr('data-record');
           selectRecord(jsonData);
@@ -263,6 +374,18 @@
 
         table.on('draw.dt search.dt order.dt', function () {
           filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
+
+          // Remove selected transactions that are no longer visible
+          selectedTransactions = selectedTransactions.filter(selected =>
+            filteredTransactions.some(filtered => filtered.recordNum === selected.recordNum)
+          );
+          // Update UI to reflect updated selectedTransactions
+          table.rows().nodes().each(function(row) {
+            const rowData = table.row(row).data();
+            const isSelected = selectedTransactions.some(item => item.recordNum === rowData.recordNum);
+            $(row).toggleClass('selected-row', isSelected);
+            $(row).find('.select-transaction-btn').text(isSelected ? 'Unselect' : 'Select');
+          });
         });
 
         filteredTransactions = table.rows({ search: 'applied' }).data().toArray();
@@ -409,6 +532,113 @@
         document.getElementById('totalAdj').innerText = `$${totalAdj.toFixed(2)}`;
         document.getElementById('breakdownWrapper').style.display = 'block';
       }
+
+      async function submitToNinox() {
+    const pmtDate = document.getElementById('pmtDate').value;
+    const paidAmount = parseFloat(document.getElementById('paidAmount').value);
+    const discountReason = document.getElementById('discountReason').value;
+
+    if (!pmtDate || isNaN(paidAmount) || !discountReason) {
+        alert("Please fill in all fields and calculate payments first.");
+        return;
+    }
+
+    if (selectedTransactions.length === 0) {
+        alert("No transactions selected to submit.");
+        return;
+    }
+
+    const totalItemCharges = filteredTransactions.reduce((sum, item) => {
+        let rawCharge = item.itemCharge;
+        let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
+        return sum + (isNaN(charge) ? 0 : charge);
+    }, 0);
+
+    if (totalItemCharges === 0) {
+        alert("No valid item charges to submit.");
+        return;
+    }
+
+    let allSuccessful = true;
+
+    // Submit data to Ninox
+    try {
+        for (const transaction of selectedTransactions) {
+            let rawCharge = transaction.itemCharge;
+            let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
+            if (isNaN(charge)) charge = 0;
+
+            const pmtToLine = (charge / totalItemCharges) * paidAmount;
+            const discountAmt = charge - pmtToLine;
+
+            const data = {
+                fields: {
+                    'Paid Amount': pmtToLine.toFixed(2),
+                    'Pmt Date': formatDate(pmtDate),
+                    'Discount Date': formatDate(pmtDate),
+                    'Discount Amount': discountAmt.toFixed(2),
+                    'Discount Reason': discountReason
+                }
+            };
+
+            const response = await fetch(`https://api.ninox.com/v1/teams/ZRkHqqZLJwTHhuexX/databases/lns73e3b59u5/tables/L/records/${transaction.recordNum}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': 'Bearer c0c1a4a0-82f1-11ef-9bb1-c1fc19323a27',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                allSuccessful = false;
+                throw new Error(`Failed to update record ${transaction.recordNum}: ${response.statusText}`);
+            }
+        }
+    } catch (err) {
+        console.error('Ninox submission error:', err);
+        alert(`Failed to submit data to Ninox: ${err.message}`);
+        return; // Stop execution if API submission fails
+    }
+
+    if (allSuccessful) {
+        alert('Data successfully submitted to Ninox!');
+
+        // Reset the form and tables
+        document.getElementById('pmtDate').value = '';
+        document.getElementById('paidAmount').value = '';
+        document.getElementById('discountReason').value = '';
+        selectedTransactions = [];
+
+        // Reset PaymentBreakdown table
+        if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
+            $('#PaymentBreakdown').DataTable().clear().destroy();
+        }
+        $('#PaymentBreakdown').empty();
+        document.getElementById('totalPaid').innerText = '$0.00';
+        document.getElementById('totalAdj').innerText = '$0.00';
+        document.getElementById('breakdownWrapper').style.display = 'none';
+
+        // Reset PatientTransactions table safely
+        try {
+            if ($.fn.DataTable.isDataTable('#PatientTransactions')) {
+                const table = $('#PatientTransactions').DataTable();
+                const rows = table.rows().nodes();
+                if (rows.length > 0) {
+                    $(rows).removeClass('selected-row');
+                    // Use column index 8 for the Action column
+                    const actionNodes = table.column(8).nodes();
+                    if (actionNodes && actionNodes.length > 0) {
+                        $(actionNodes).find('button').text('Select');
+                    }
+                }
+            }
+        } catch (resetErr) {
+            console.warn('Failed to reset PatientTransactions table:', resetErr);
+            // Don't alert here to avoid confusing users; just log to console
+        }
+    }
+}
 
       $(document).ready(function () {
         fetchPatientList();
