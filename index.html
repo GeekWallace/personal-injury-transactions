@@ -234,7 +234,6 @@
           return `${mm}/${dd}/${yyyy}`;
       }
 
-
       // call the webhook to fetch data, parse it and send it to renderPatientListTable 
       async function fetchPatientList() {
         try {
@@ -303,21 +302,21 @@
         });
 
         $('#PatientList').on('search.dt', function () {
-        if ($.fn.DataTable.isDataTable('#PatientTransactions')) {
-          $('#PatientTransactions').DataTable().clear().destroy();
-          $('#PatientTransactions').empty();
-        }
-        if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
-          $('#PaymentBreakdown').DataTable().clear().destroy();
-          $('#PaymentBreakdown').empty();
-        }
-        selectedTransactions = [];
-        filteredTransactions = [];
-        document.getElementById('patientNameHeader').innerText = 'Patient Location Transactions';
-        document.getElementById('totalPaid').innerText = '$0.00';
-        document.getElementById('totalAdj').innerText = '$0.00';
-        document.getElementById('breakdownWrapper').style.display = 'none';
-      });
+          if ($.fn.DataTable.isDataTable('#PatientTransactions')) {
+            $('#PatientTransactions').DataTable().clear().destroy();
+            $('#PatientTransactions').empty();
+          }
+          if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
+            $('#PaymentBreakdown').DataTable().clear().destroy();
+            $('#PaymentBreakdown').empty();
+          }
+          selectedTransactions = [];
+          filteredTransactions = [];
+          document.getElementById('patientNameHeader').innerText = 'Patient Location Transactions';
+          document.getElementById('totalPaid').innerText = '$0.00';
+          document.getElementById('totalAdj').innerText = '$0.00';
+          document.getElementById('breakdownWrapper').style.display = 'none';
+        });
 
         $('#PatientList').on('click', '.select-btn', function () {
           const jsonData = $(this).attr('data-record');
@@ -368,7 +367,7 @@
                   const safeJson = $('<div>').text(JSON.stringify(rowData)).html();
                   return `<button class="select-transaction-btn" data-record='${safeJson}'>Select</button>`;
               }
-          }
+            }
           ]
         });
 
@@ -424,21 +423,27 @@
           return;
         }
 
-        document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
-        fetchPatientTransactions(data.recordId);
-
-        selectedTransactions = []; // reset selected transactions
-
+        // Reset transactions and table state
+        selectedTransactions = [];
+        filteredTransactions = [];
+        if ($.fn.DataTable.isDataTable('#PatientTransactions')) {
+          $('#PatientTransactions').DataTable().clear().destroy();
+          $('#PatientTransactions').empty();
+        }
         if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
           $('#PaymentBreakdown').DataTable().clear().destroy();
+          $('#PaymentBreakdown').empty();
         }
 
-        $('#PaymentBreakdown').empty();
-          document.getElementById('totalPaid').innerText = `$0.00`;
-          document.getElementById('totalAdj').innerText = `$0.00`;
-          document.getElementById('breakdownWrapper').style.display = 'none';
+        document.getElementById('patientNameHeader').innerText = `Transactions for ${data.patientName}`;
+        document.getElementById('totalPaid').innerText = `$0.00`;
+        document.getElementById('totalAdj').innerText = `$0.00`;
+        document.getElementById('breakdownWrapper').style.display = 'none';
 
-        // 👇 Scroll to transactions table
+        // Fetch new transactions for the selected patient
+        fetchPatientTransactions(data.recordId);
+
+        // Scroll to transactions table
         document.getElementById('PatientTransactions').scrollIntoView({
           behavior: 'smooth',
           block: 'start'
@@ -458,9 +463,9 @@
         if (selectedTransactions.length === 0) {
           alert("No transactions selected.");
           return;
-          }
+        }
 
-        const totalItemCharges = filteredTransactions.reduce((sum, item) => {
+        const totalItemCharges = selectedTransactions.reduce((sum, item) => {
           let rawCharge = item.itemCharge;
           let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
           return sum + (isNaN(charge) ? 0 : charge);
@@ -534,111 +539,111 @@
       }
 
       async function submitToNinox() {
-    const pmtDate = document.getElementById('pmtDate').value;
-    const paidAmount = parseFloat(document.getElementById('paidAmount').value);
-    const discountReason = document.getElementById('discountReason').value;
+        const pmtDate = document.getElementById('pmtDate').value;
+        const paidAmount = parseFloat(document.getElementById('paidAmount').value);
+        const discountReason = document.getElementById('discountReason').value;
 
-    if (!pmtDate || isNaN(paidAmount) || !discountReason) {
-        alert("Please fill in all fields and calculate payments first.");
-        return;
-    }
+        if (!pmtDate || isNaN(paidAmount) || !discountReason) {
+            alert("Please fill in all fields and calculate payments first.");
+            return;
+        }
 
-    if (selectedTransactions.length === 0) {
-        alert("No transactions selected to submit.");
-        return;
-    }
+        if (selectedTransactions.length === 0) {
+            alert("No transactions selected to submit.");
+            return;
+        }
 
-    const totalItemCharges = filteredTransactions.reduce((sum, item) => {
-        let rawCharge = item.itemCharge;
-        let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
-        return sum + (isNaN(charge) ? 0 : charge);
-    }, 0);
-
-    if (totalItemCharges === 0) {
-        alert("No valid item charges to submit.");
-        return;
-    }
-
-    let allSuccessful = true;
-
-    // Submit data to Ninox
-    try {
-        for (const transaction of selectedTransactions) {
-            let rawCharge = transaction.itemCharge;
+        const totalItemCharges = selectedTransactions.reduce((sum, item) => {
+            let rawCharge = item.itemCharge;
             let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
-            if (isNaN(charge)) charge = 0;
+            return sum + (isNaN(charge) ? 0 : charge);
+        }, 0);
 
-            const pmtToLine = (charge / totalItemCharges) * paidAmount;
-            const discountAmt = charge - pmtToLine;
-
-            const data = {
-                fields: {
-                    'Paid Amount': pmtToLine.toFixed(2),
-                    'Pmt Date': formatDate(pmtDate),
-                    'Discount Date': formatDate(pmtDate),
-                    'Discount Amount': discountAmt.toFixed(2),
-                    'Discount Reason': discountReason
-                }
-            };
-
-            const response = await fetch(`https://api.ninox.com/v1/teams/ZRkHqqZLJwTHhuexX/databases/lns73e3b59u5/tables/L/records/${transaction.recordNum}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': 'Bearer c0c1a4a0-82f1-11ef-9bb1-c1fc19323a27',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            });
-
-            if (!response.ok) {
-                allSuccessful = false;
-                throw new Error(`Failed to update record ${transaction.recordNum}: ${response.statusText}`);
-            }
+        if (totalItemCharges === 0) {
+            alert("No valid item charges to submit.");
+            return;
         }
-    } catch (err) {
-        console.error('Ninox submission error:', err);
-        alert(`Failed to submit data to Ninox: ${err.message}`);
-        return; // Stop execution if API submission fails
-    }
 
-    if (allSuccessful) {
-        alert('Data successfully submitted to Ninox!');
+        let allSuccessful = true;
 
-        // Reset the form and tables
-        document.getElementById('pmtDate').value = '';
-        document.getElementById('paidAmount').value = '';
-        document.getElementById('discountReason').value = '';
-        selectedTransactions = [];
-
-        // Reset PaymentBreakdown table
-        if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
-            $('#PaymentBreakdown').DataTable().clear().destroy();
-        }
-        $('#PaymentBreakdown').empty();
-        document.getElementById('totalPaid').innerText = '$0.00';
-        document.getElementById('totalAdj').innerText = '$0.00';
-        document.getElementById('breakdownWrapper').style.display = 'none';
-
-        // Reset PatientTransactions table safely
+        // Submit data to Ninox
         try {
-            if ($.fn.DataTable.isDataTable('#PatientTransactions')) {
-                const table = $('#PatientTransactions').DataTable();
-                const rows = table.rows().nodes();
-                if (rows.length > 0) {
-                    $(rows).removeClass('selected-row');
-                    // Use column index 8 for the Action column
-                    const actionNodes = table.column(8).nodes();
-                    if (actionNodes && actionNodes.length > 0) {
-                        $(actionNodes).find('button').text('Select');
+            for (const transaction of selectedTransactions) {
+                let rawCharge = transaction.itemCharge;
+                let charge = typeof rawCharge === 'string' ? parseFloat(rawCharge.replace(/[^0-9.-]+/g, "")) : rawCharge;
+                if (isNaN(charge)) charge = 0;
+
+                const pmtToLine = (charge / totalItemCharges) * paidAmount;
+                const discountAmt = charge - pmtToLine;
+
+                const data = {
+                    fields: {
+                        'Paid Amount': pmtToLine.toFixed(2),
+                        'Pmt Date': formatDate(pmtDate),
+                        'Discount Date': formatDate(pmtDate),
+                        'Discount Amount': discountAmt.toFixed(2),
+                        'Discount Reason': discountReason
+                    }
+                };
+
+                const response = await fetch(`https://api.ninox.com/v1/teams/ZRkHqqZLJwTHhuexX/databases/lns73e3b59u5/tables/L/records/${transaction.recordNum}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': 'Bearer c0c1a4a0-82f1-11ef-9bb1-c1fc19323a27',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    allSuccessful = false;
+                    throw new Error(`Failed to update record ${transaction.recordNum}: ${response.statusText}`);
+                }
+            }
+        } catch (err) {
+            console.error('Ninox submission error:', err);
+            alert(`Failed to submit data to Ninox: ${err.message}`);
+            return; // Stop execution if API submission fails
+        }
+
+        if (allSuccessful) {
+            alert('Data successfully submitted to Ninox!');
+
+            // Reset the form and tables
+            document.getElementById('pmtDate').value = '';
+            document.getElementById('paidAmount').value = '';
+            document.getElementById('discountReason').value = '';
+            selectedTransactions = [];
+
+            // Reset PaymentBreakdown table
+            if ($.fn.DataTable.isDataTable('#PaymentBreakdown')) {
+                $('#PaymentBreakdown').DataTable().clear().destroy();
+            }
+            $('#PaymentBreakdown').empty();
+            document.getElementById('totalPaid').innerText = '$0.00';
+            document.getElementById('totalAdj').innerText = '$0.00';
+            document.getElementById('breakdownWrapper').style.display = 'none';
+
+            // Reset PatientTransactions table safely
+            try {
+                if ($.fn.DataTable.isDataTable('#PatientTransactions')) {
+                    const table = $('#PatientTransactions').DataTable();
+                    const rows = table.rows().nodes();
+                    if (rows.length > 0) {
+                        $(rows).removeClass('selected-row');
+                        // Use column index 8 for the Action column
+                        const actionNodes = table.column(8).nodes();
+                        if (actionNodes && actionNodes.length > 0) {
+                            $(actionNodes).find('button').text('Select');
+                        }
                     }
                 }
+            } catch (resetErr) {
+                console.warn('Failed to reset PatientTransactions table:', resetErr);
+                // Don't alert here to avoid confusing users; just log to console
             }
-        } catch (resetErr) {
-            console.warn('Failed to reset PatientTransactions table:', resetErr);
-            // Don't alert here to avoid confusing users; just log to console
         }
-    }
-}
+      }
 
       $(document).ready(function () {
         fetchPatientList();
